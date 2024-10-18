@@ -1,0 +1,56 @@
+import RPi.GPIO as GPIO  # Import the GPIO library to control the pins
+from time import sleep   # Import sleep to add delays between movements
+
+# Set up the GPIO pins to use BCM (Broadcom) numbering
+GPIO.setmode(GPIO.BCM)
+
+# Define the GPIO pin number where the PWM signal will be sent
+pwmPin = 18
+GPIO.setup(pwmPin, GPIO.OUT)  # Set the pin as an output pin
+
+# Initialize PWM on the defined pin with a frequency of 50Hz (standard for servo motors)
+pwm = GPIO.PWM(pwmPin, 50)
+pwm.start(0)  # Start PWM with a duty cycle of 0 (no movement yet)
+
+# Function to map the servo angle (0 to 90 degrees) to the corresponding PWM duty cycle (0% to 15%)
+def angle_to_duty_cycle(angle):
+    # Convert angle to duty cycle percentage, where 0 degrees is 0% and 90 degrees is 15%
+    return (angle / 90) * 15
+
+# Function to move the servo motor gradually between two angles (start_angle to end_angle)
+# step_delay controls the speed of the ramp-up effect (i.e., how fast the servo moves)
+def move_servo(start_angle, end_angle, step_delay=0.05):
+    # If the start angle is smaller than the end angle, increase the angle gradually
+    if start_angle < end_angle:
+        for angle in range(start_angle, end_angle + 1):
+            pwm.ChangeDutyCycle(angle_to_duty_cycle(angle))  # Update the PWM duty cycle for the current angle
+            sleep(step_delay)  # Wait for a short time to create the ramp-up effect
+    else:
+        # If the start angle is larger, decrease the angle gradually
+        for angle in range(start_angle, end_angle - 1, -1):
+            pwm.ChangeDutyCycle(angle_to_duty_cycle(angle))  # Update the PWM duty cycle
+            sleep(step_delay)  # Small delay between movements for smooth motion
+
+# Main loop where the user can input a target angle for the motor to move to
+try:
+    while True:
+        # Ask the user to input a target angle between 0 and 90 degrees
+        target_angle = float(input("Enter angle (0 to 90 degrees): "))
+
+        # Ensure the user inputs a valid angle within the acceptable range
+        if 0 <= target_angle <= 90:
+            # Assume we start from 0 degrees and move the servo to the target angle
+            current_angle = 0  # Starting position of the motor (could be adjusted as needed)
+            move_servo(current_angle, int(target_angle))  # Move the servo gradually to the target angle
+        else:
+            # Notify the user if the input is out of bounds
+            print("Please enter an angle between 0 and 90 degrees.")
+        
+        # Add a brief pause between successive commands
+        sleep(0.5)
+
+# Exception handler to safely stop the PWM and clean up GPIO settings when the user interrupts the program
+except KeyboardInterrupt:
+    pwm.stop()  # Stop the PWM signal
+    GPIO.cleanup()  # Reset the GPIO settings to their default state
+    print("GPIO cleaned up and good to go!")  # Confirmation message after cleanup
