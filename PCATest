@@ -1,0 +1,30 @@
+import os
+import fcntl
+
+I2C_SLAVE = 0x0703
+PCA9685_ADDR = 0x40
+
+i2c_dev = '/dev/i2c-1'
+
+fd = os.open(i2c_dev, os.O_RDWR)
+fcntl.ioctl(fd, I2C_SLAVE, PCA9685_ADDR)
+
+def write(register, value):
+        os.write(fd, bytes([register, value]))
+
+write(0x00, 0x00)
+
+pwm_freq = 50
+prescale_value = int(25000000.0/(4096*pwm_freq) - 1)
+write(0xFE, prescale_value)
+
+channel = 0
+on_value = 0
+off_value = 1024
+
+write(0x06 + 4 * channel, on_value & 0xFF)
+write(0x07 + 4 * channel, on_value >> 8)
+write(0x08 + 4 * channel, off_value & 0xFF)
+write(0x09 + 4 * channel, off_value >> 8)
+
+os.close(fd)
