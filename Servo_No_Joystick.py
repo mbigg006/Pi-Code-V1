@@ -3,69 +3,44 @@ from adafruit_pca9685 import PCA9685
 from board import SCL, SDA
 import busio
 
-# Initialize I2C and PCA9685 for servo control
+# Initialize I2C bus
 i2c = busio.I2C(SCL, SDA)
+
+# Initialize PCA9685 at default address 0x40
 pca = PCA9685(i2c)
-pca.frequency = 50  # Standard frequency for servos
+pca.frequency = 50  # Set frequency to 50Hz for servos
 
-# Configuration for servos
-SERVO_MIN = 150  # Minimum pulse length
-SERVO_MAX = 600  # Maximum pulse length
-NUM_SERVOS = 6   # Number of servos for 6-DOF arm
+# Helper function to convert angle to pulse width
+def angle_to_pwm(angle):
+    min_pulse = 500  # Minimum pulse width in microseconds for 0 degrees
+    max_pulse = 2500  # Maximum pulse width in microseconds for 180 degrees
+    pulse_range = max_pulse - min_pulse
+    angle_range = 180
+    pulse_width = min_pulse + (pulse_range * angle / angle_range)
+    duty_cycle = int(pulse_width / 20000 * 0xFFFF)  # Convert to 16-bit duty cycle
+    return duty_cycle
 
-# Define initial positions for each servo as percentages (0 to 100)
-# You can adjust these values as needed to control each DOF of the arm
-servo_positions = [50, 75, 25, 50, 90, 10]  # Example positions in percentage
+# Define servo channels (adjust channels to match your setup)
+servo_channels = [0, 1, 2, 3, 4, 5]  # Channels for each of the six servos
 
-# Function to map a percentage value (0 to 100) to the servo pulse width
-def map_position_to_servo(pct, min_pulse, max_pulse):
-    """
-    Maps a percentage value (0 to 100) to a pulse width within the servo's range.
-    :param pct: Percentage value (0 to 100) for the servo position.
-    :param min_pulse: Minimum pulse width for the servo.
-    :param max_pulse: Maximum pulse width for the servo.
-    :return: Corresponding pulse width for the given position.
-    """
-    return int((pct / 100) * (max_pulse - min_pulse) + min_pulse)
+# Set all servos to 0 degrees
+for channel in servo_channels:
+    pca.channels[channel].duty_cycle = angle_to_pwm(0)
+    print(f"Servo on channel {channel} set to 0 degrees")
+time.sleep(2)  # Hold at 0 degrees for 2 seconds
 
-# Function to set servo positions
-def set_servo_positions(positions):
-    """
-    Sets each servo to the specified position in `positions`.
-    :param positions: List of percentage values (0 to 100) for each servo.
-    """
-    for i, pct in enumerate(positions):
-        servo_pulse = map_position_to_servo(pct, SERVO_MIN, SERVO_MAX)
-        pca.channels[i].duty_cycle = servo_pulse
-        print(f"Setting Servo {i+1} to {pct}% -> Pulse {servo_pulse}")
-    print("All servos set to specified positions.")
+# Sweep all servos from 0 to 180 degrees to test movement
+for angle in range(0, 181, 10):  # Increment by 10 degrees
+    for channel in servo_channels:
+        pca.channels[channel].duty_cycle = angle_to_pwm(angle)
+        print(f"Setting servo on channel {channel} to {angle} degrees")
+    time.sleep(0.5)  # Delay between angle updates
 
-# Main program loop (example of moving through different positions)
-try:
-    while True:
-        # Set servos to initial positions
-        set_servo_positions(servo_positions)
-
-        # Delay to hold position
-        time.sleep(2)
-
-        # Example of moving servos to a different position
-        new_positions = [10, 50, 75, 30, 60, 90]
-        print("Moving to new positions...")
-        set_servo_positions(new_positions) 
-
-        # Delay to hold new position
-        time.sleep(2)
-
-        # Move back to the initial positions
-        print("Returning to initial positions...")
-        set_servo_positions(servo_positions)
-
-        # Delay to hold initial position
-        time.sleep(2)
-
-except KeyboardInterrupt:
-    print("\nExiting...")
+# Return all servos to 0 degrees
+for channel in servo_channels:
+    pca.channels[channel].duty_cycle = angle_to_pwm(0)
+    print(f"Servo on channel {channel} returned to 0 degrees")
 
 # Cleanup
 pca.deinit()
+print("Test complete")
